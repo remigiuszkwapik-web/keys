@@ -1,0 +1,4 @@
+.DS_Store
+*.plain.json
+momente-plain.json
+.env
