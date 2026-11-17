@@ -170,14 +170,17 @@ button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px
 @media (prefers-reduced-motion: reduce) {
   .moment, #scale .link, #scale .pin { transition: none; }
 }
-.remember { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 180px; }
-.remember input { width: 18px; height: 18px; accent-color: var(--signal); }
-#unlock input[type=password] {
+.backup input[type=password] {
   width: 100%; font: 15px/22px var(--font-sans); color: var(--ink); background: var(--alu-face);
   border: 0; border-radius: 6px; padding: 10px 12px; box-shadow: inset 0 0 0 1px var(--alu-edge);
 }
-#unlock { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-#unlock[hidden] { display: none; }
+.backup { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.bk-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.bk-note { margin: 0; max-width: 60ch; color: var(--ink-muted); }
+.filebtn { display: inline-flex; align-items: center; position: relative; overflow: hidden; }
+.filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.filebtn:focus-within { outline: 2px solid var(--signal); outline-offset: 3px; }
+#bk-msg { min-height: 16px; }
 [hidden] { display: none !important; }
 html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; }
@@ -193,11 +196,9 @@ body { margin: 0; }
     </div>
     <div class="controls">
       <span class="status"><span class="led" aria-hidden="true"></span><span id="statusword">Lädt</span></span>
-      <div class="cap" id="lockcap" hidden>
-        <button class="key" id="lockbtn" aria-label="Logbuch sperren">
-          <svg width="18" height="20" viewBox="0 0 18 20" aria-hidden="true"><rect x="2" y="9" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M5 9V6a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8"></path></svg>
-        </button>
-        <span class="label">Sperren</span>
+      <div class="cap">
+        <button class="key" id="toggle" aria-expanded="false" aria-controls="add" aria-label="Neuen Moment festhalten">+</button>
+        <span class="label">Neu</span>
       </div>
     </div>
   </header>
@@ -208,22 +209,42 @@ body { margin: 0; }
     <div class="well readout"><span class="label">Zuletzt</span><b id="r-last">–</b></div>
   </div>
 
-  <form id="unlock" class="well" hidden>
+  <form id="add" class="well" hidden>
     <div class="field">
-      <label class="label" for="pass">Passphrase</label>
-      <input type="password" id="pass" autocomplete="current-password" required>
+      <label class="label" for="f-text">Was hast du gemerkt?</label>
+      <textarea id="f-text" required></textarea>
+      <span class="mono hint"><svg width="14" height="16" viewBox="0 0 14 16" aria-hidden="true"><rect x="4" y="1" width="6" height="9" rx="3"></rect><path d="M1.5 7.5a5.5 5.5 0 0 0 11 0M7 13v2"></path></svg>Einsprechen: ins Feld tippen, dann das Mikrofon auf der iPhone-Tastatur.</span>
     </div>
     <div class="formrow">
-      <label class="mono remember"><input type="checkbox" id="remember" checked> Auf diesem Gerät merken</label>
-      <button type="submit" class="go" id="unlockbtn">Entsperren</button>
+      <div class="field"><label class="label" for="f-title">Kurztitel</label><input type="text" id="f-title" placeholder="z. B. Edge Cases zuerst"></div>
+      <div class="field"><label class="label" for="f-tag">Bereich</label><input type="text" id="f-tag" placeholder="z. B. seca"></div>
+      <button type="submit" class="go" id="f-save">Festhalten</button>
     </div>
-    <span class="mono" id="formstatus" role="status">Die Momente liegen verschlüsselt im Repo. Erst mit der Passphrase werden sie lesbar.</span>
+    <span class="mono" id="formstatus" role="status"></span>
   </form>
 
   <section class="well trackwell" aria-label="Zeitstrahl">
     <div id="track">
       <svg id="scale" aria-hidden="true"></svg>
     </div>
+  </section>
+
+  <section class="well backup" aria-labelledby="bk-h">
+    <div class="bk-head">
+      <span class="label" id="bk-h">Sicherung</span>
+      <span class="mono" id="bk-state">Gespeichert nur in diesem Browser</span>
+    </div>
+    <p class="bk-note">Deine Momente verlassen dieses Gerät nicht. Werden die Safari-Daten gelöscht, sind sie weg. Leg die Seite auf den Home-Bildschirm und sichere ab und zu ein Backup.</p>
+    <div class="formrow">
+      <button type="button" class="mini" id="bk-save">Backup speichern</button>
+      <label class="mini filebtn" for="bk-file">Backup laden<input type="file" id="bk-file" accept="application/json,.json"></label>
+      <button type="button" class="mini" id="bk-repo-open" hidden>Aus dem Repo übernehmen</button>
+    </div>
+    <form id="repoform" class="formrow" hidden>
+      <div class="field"><label class="label" for="pass">Passphrase der Repo-Momente</label><input type="password" id="pass" autocomplete="current-password" required></div>
+      <button type="submit" class="mini sig" id="pass-go">Übernehmen</button>
+    </form>
+    <span class="mono" id="bk-msg" role="status"></span>
   </section>
 </div>
 <div id="needle" aria-hidden="true"><div class="in"><span class="bar"></span><span class="tip"></span><span class="txt">Lesekante</span></div></div>
@@ -327,7 +348,7 @@ body { margin: 0; }
     if (!moments.length && loaded) {
       var e = document.createElement("div");
       e.className = "empty"; e.style.left = (railX + 28) + "px"; e.style.top = "60px";
-      e.textContent = "Noch keine Momente. Sprich im Chat „Key-Moment: …“ ein oder tippe auf +.";
+      e.textContent = "Noch keine Momente. Tippe oben auf +, um den ersten festzuhalten.";
       track.appendChild(e);
     }
     scan();
@@ -454,11 +475,107 @@ body { margin: 0; }
   // Erste Darstellung ohne Daten: leere Skala
   layout();
 
-  var KEY = "km-pass";
-  var form = document.getElementById("unlock"), fs = document.getElementById("formstatus");
-  function store(get, val) {
-    try { if (get) return localStorage.getItem(KEY); if (val === null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, val); } catch (e) { return null; }
+  // ---------- Lokaler Speicher ----------
+  var STORE = "km-momente-v1";
+  function readAll() {
+    try { var raw = localStorage.getItem(STORE); var v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
   }
+  function writeAll(list) {
+    localStorage.setItem(STORE, JSON.stringify(list));
+    render();
+  }
+  function newId(t) { return new Date(t).toISOString().slice(0, 10) + "-" + Math.random().toString(36).slice(2, 8); }
+  function render() {
+    loaded = true;
+    build(readAll().map(function (m) { return { id: m.id, data: function () { return m; } }; }));
+  }
+  // dieselbe Form wie früher der Claude-Speicher, damit Bearbeiten und Löschen unverändert bleiben
+  colRef = {
+    doc: function (id) {
+      return {
+        update: async function (patch) {
+          var list = readAll(), m = list.find(function (x) { return x.id === id; });
+          if (!m) throw new Error("fehlt");
+          Object.assign(m, patch); writeAll(list);
+        },
+        delete: async function () { writeAll(readAll().filter(function (x) { return x.id !== id; })); }
+      };
+    },
+    add: async function (m) { var list = readAll(); m.id = newId(m.datum); list.push(m); writeAll(list); }
+  };
+  writable = true;
+
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(function (ok) {
+    if (ok) document.getElementById("bk-state").textContent = "Dauerhaft in diesem Browser gespeichert";
+  }); } catch (e) {}
+
+  // ---------- Neuer Moment ----------
+  var toggle = document.getElementById("toggle"), form = document.getElementById("add"), fs = document.getElementById("formstatus");
+  toggle.addEventListener("click", function () {
+    var open = form.hidden; form.hidden = !open; toggle.setAttribute("aria-expanded", String(open));
+    if (open) document.getElementById("f-text").focus();
+  });
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var text = document.getElementById("f-text").value.trim();
+    if (!text) return;
+    try {
+      await colRef.add({ datum: new Date().toISOString(), text: text,
+        titel: document.getElementById("f-title").value.trim(),
+        bereich: document.getElementById("f-tag").value.trim() });
+      form.reset(); fs.textContent = "Festgehalten.";
+      form.hidden = true; toggle.setAttribute("aria-expanded", "false");
+      window.scrollTo({ top: track.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.3, behavior: "smooth" });
+    } catch (err) {
+      fs.textContent = "Speichern hat nicht geklappt. Safari erlaubt im privaten Modus keinen Speicher.";
+    }
+  });
+
+  // ---------- Sicherung ----------
+  var msg = document.getElementById("bk-msg");
+  function merge(incoming) {
+    var list = readAll(), ids = {}, added = 0;
+    list.forEach(function (m) { ids[m.id] = true; });
+    incoming.forEach(function (m) {
+      if (!m || typeof m.text !== "string") return;
+      var clean = { id: String(m.id || newId(m.datum || Date.now())), datum: m.datum || new Date().toISOString(),
+        titel: String(m.titel || ""), bereich: String(m.bereich || ""), text: m.text };
+      if (!ids[clean.id]) { list.push(clean); ids[clean.id] = true; added++; }
+    });
+    writeAll(list);
+    return added;
+  }
+  document.getElementById("bk-save").addEventListener("click", async function () {
+    var d = new Date(), name = "key-momente-" + d.toISOString().slice(0, 10) + ".json";
+    var blob = new Blob([JSON.stringify(readAll(), null, 2)], { type: "application/json" });
+    var file = null;
+    try { file = new File([blob], name, { type: "application/json" }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "Key-Momente Backup" }); msg.textContent = "Backup übergeben."; return; }
+      catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+    msg.textContent = "Backup gespeichert: " + name;
+  });
+  document.getElementById("bk-file").addEventListener("change", function (e) {
+    var f = e.target.files && e.target.files[0]; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var v = JSON.parse(r.result);
+        if (!Array.isArray(v)) throw new Error("kein Array");
+        var n = merge(v);
+        msg.textContent = n ? n + (n === 1 ? " Moment" : " Momente") + " übernommen." : "Alles schon vorhanden.";
+      } catch (err) { msg.textContent = "Diese Datei ist kein Key-Momente-Backup."; }
+      e.target.value = "";
+    };
+    r.readAsText(f);
+  });
+
+  // ---------- Einmalige Übernahme der verschlüsselten Repo-Momente ----------
   function b64(s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); }
   async function decrypt(box, pass) {
     var base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
@@ -467,45 +584,22 @@ body { margin: 0; }
     var plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(box.iv) }, key, b64(box.data));
     return JSON.parse(new TextDecoder().decode(plain));
   }
-  var box = null;
-  async function open(pass, remember) {
-    var list = await decrypt(box, pass);
-    if (remember) store(false, pass);
-    form.hidden = true;
-    document.getElementById("lockcap").hidden = false;
-    loaded = true;
-    build(list.map(function (m) { return { id: m.id, data: function () { return m; } }; }));
-  }
-  function showLock(msg) {
-    form.hidden = false; loaded = false;
-    document.getElementById("statusword").textContent = "Gesperrt";
-    if (msg) fs.textContent = msg;
-    build([]);
-  }
-  document.getElementById("lockbtn").addEventListener("click", function () {
-    store(false, null); document.getElementById("lockcap").hidden = true; showLock(); document.getElementById("pass").focus();
-  });
-  form.addEventListener("submit", async function (e) {
+  var box = null, repoForm = document.getElementById("repoform"), repoBtn = document.getElementById("bk-repo-open");
+  fetch("momente.enc.json", { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (b) { if (b && b.data) { box = b; repoBtn.hidden = false; } }).catch(function () {});
+  repoBtn.addEventListener("click", function () { repoForm.hidden = !repoForm.hidden; if (!repoForm.hidden) document.getElementById("pass").focus(); });
+  repoForm.addEventListener("submit", async function (e) {
     e.preventDefault();
-    var b = document.getElementById("unlockbtn"); b.disabled = true; fs.textContent = "Wird entschlüsselt …";
-    try { await open(document.getElementById("pass").value, document.getElementById("remember").checked); document.getElementById("pass").value = ""; }
-    catch (err) { fs.textContent = "Passphrase passt nicht. Bitte noch einmal eingeben."; }
-    finally { b.disabled = false; }
+    var go = document.getElementById("pass-go"); go.disabled = true; msg.textContent = "Wird entschlüsselt …";
+    try {
+      var n = merge(await decrypt(box, document.getElementById("pass").value));
+      document.getElementById("pass").value = ""; repoForm.hidden = true;
+      msg.textContent = n ? n + (n === 1 ? " Moment" : " Momente") + " aus dem Repo übernommen." : "Alles schon vorhanden.";
+    } catch (err) { msg.textContent = "Passphrase passt nicht."; }
+    finally { go.disabled = false; }
   });
 
-  async function start() {
-    try {
-      var r = await fetch("momente.enc.json", { cache: "no-store" });
-      if (!r.ok) throw new Error(r.status);
-      box = await r.json();
-    } catch (e) {
-      loaded = true; document.getElementById("statusword").textContent = "Keine Daten"; layout(); return;
-    }
-    var saved = store(true);
-    if (saved) { try { await open(saved, false); return; } catch (e) { store(false, null); } }
-    showLock();
-  }
-  start();
+  render();
 })();
 </script>
 </body>

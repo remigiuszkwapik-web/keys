@@ -2,7 +2,9 @@
 
 Ein persönliches Logbuch für Erkenntnisse, die bleiben sollen. Die Seite zeigt sie als scrollbaren Zeitstrahl im Stil eines Messgeräts: eine Skala mit einem Teilstrich pro Tag und einem Hauptstrich pro Kalenderwoche. Der Moment an der Lesekante fährt seitlich aus.
 
-Das Repo ist öffentlich, die Momente sind es nicht. Sie liegen nur verschlüsselt in `momente.enc.json` (AES-256-GCM, Schlüssel per PBKDF2-SHA256 mit 250 000 Runden aus einer Passphrase). Die Seite entschlüsselt im Browser; ohne Passphrase sieht man nur die leere Skala.
+Die Momente liegen nur lokal im Browser des Geräts (localStorage) und nie im Repo. Auf der Seite legst du sie an, bearbeitest und löschst sie. Über „Backup speichern“ entsteht eine JSON-Datei, die sich mit „Backup laden“ wieder einspielen oder auf ein anderes Gerät bringen lässt.
+
+`momente.enc.json` enthält die ersten Momente verschlüsselt (AES-256-GCM, PBKDF2-SHA256). Mit „Aus dem Repo übernehmen“ und der Passphrase lassen sie sich einmalig in den lokalen Speicher holen.
 
 ## Aufbau
 
@@ -12,24 +14,15 @@ Das Repo ist öffentlich, die Momente sind es nicht. Sie liegen nur verschlüsse
 | `momente.enc.json` | die verschlüsselten Momente |
 | `tools/moment.mjs` | Momente hinzufügen, ändern, löschen (Node 20+) |
 
-## Momente pflegen
+## Wichtig zum Speicher
 
-Die Passphrase kommt immer aus der Umgebungsvariable `MOMENTE_PASS` und wird nie eingecheckt.
+Safari löscht den Speicher einer normalen Webseite, wenn sie sieben Tage nicht benutzt wurde. Auf dem Home-Bildschirm abgelegte Web-Apps sind davon ausgenommen. Deshalb die Seite als App ablegen und gelegentlich ein Backup sichern.
 
-```sh
-export MOMENTE_PASS="…"
-node tools/moment.mjs list
-node tools/moment.mjs add --titel "Nicht nur der Happy Path" --bereich "seca" --text "…"
-node tools/moment.mjs edit 2026-10-11-compositor --titel "Compositor statt Photoshop"
-node tools/moment.mjs delete <id>
-MOMENTE_NEW_PASS="…" node tools/moment.mjs rekey   # Passphrase wechseln
-```
-
-Danach committen und pushen. GitHub Pages zeigt den neuen Stand nach etwa einer Minute.
+`tools/moment.mjs` pflegt nur noch die verschlüsselte Repo-Datei und wird für den Alltag nicht gebraucht.
 
 ## Auf dem iPhone
 
-Seite in Safari öffnen, Passphrase einmal eingeben („Auf diesem Gerät merken“), dann Teilen → „Zum Home-Bildschirm“. Mit der Schloss-Taste wird die Passphrase vom Gerät entfernt.
+Seite in Safari öffnen, Teilen → „Zum Home-Bildschirm“, dann die App von dort starten. Neue Momente über die Plus-Taste, Einsprechen über das Mikrofon der Tastatur.
 
 ## Gestaltung
 
